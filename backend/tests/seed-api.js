@@ -32,7 +32,7 @@ async function clearAllTasks() {
   console.log(chalk.gray('Limpando dados existentes...'))
   
   const { tasks } = await request('GET', '/tasks')
-  
+  console.log(tasks)
   for (const task of tasks) {
     await request('DELETE', `/tasks/${task.id}`)
   }
@@ -59,55 +59,59 @@ async function seed() {
     // 4. Criar tarefas COMPLETADAS
     console.log(chalk.gray('Criando tarefas completadas...'))
     
+    const completedTasks = {}
+    
     // Setup inicial
-    await request('POST', '/tasks', {
-      id: 'config-initial',
+    let task = await request('POST', '/tasks', {
       title: 'Setup inicial do projeto',
       category: 'Setup',
       description: 'Configurar estrutura base, ESLint, Jest'
     })
-    await request('PUT', '/tasks/config-initial', { status: 'active' })
-    await request('POST', '/tasks/config-initial/complete')
+    completedTasks.setup = task.id
+    await request('PUT', `/tasks/${task.id}`, { status: 'active' })
+    await request('POST', `/tasks/${task.id}/complete`)
     
     // Connection pool
-    await request('POST', '/tasks', {
-      id: 'storage-connection-pool',
+    task = await request('POST', '/tasks', {
       title: 'Implementar connection pool PostgreSQL',
       category: 'Storage/Database',
       description: 'Singleton com healthcheck e retry'
     })
-    await request('PUT', '/tasks/storage-connection-pool', { status: 'active' })
-    await request('PUT', '/tasks/storage-connection-pool', {
+    completedTasks.connectionPool = task.id
+    await request('PUT', `/tasks/${task.id}`, { status: 'active' })
+    await request('PUT', `/tasks/${task.id}`, {
       phase: 'implementation',
       files: {
         created: ['src/storage/database/connection.js', 'tests/storage/connection.test.js'],
         tested: ['src/storage/database/connection.js']
       }
     })
-    await request('POST', '/tasks/storage-connection-pool/complete')
+    await request('POST', `/tasks/${task.id}/complete`)
     
     // Logger
-    await request('POST', '/tasks', {
-      id: 'utils-logger',
+    task = await request('POST', '/tasks', {
       title: 'Sistema de logging estruturado',
       category: 'Utils',
       description: 'Winston com níveis e formatação JSON'
     })
-    await request('PUT', '/tasks/utils-logger', { status: 'active' })
-    await request('POST', '/tasks/utils-logger/complete')
+    completedTasks.logger = task.id
+    await request('PUT', `/tasks/${task.id}`, { status: 'active' })
+    await request('POST', `/tasks/${task.id}/complete`)
     
     // 5. Criar tarefas ATIVAS
     console.log(chalk.gray('Criando tarefas ativas...'))
     
+    const activeTasks = {}
+    
     // PostRepository - em implementation
-    await request('POST', '/tasks', {
-      id: 'storage-post-repo',
+    task = await request('POST', '/tasks', {
       title: 'Implementar PostRepository',
       category: 'Storage/Repositories',
       description: 'CRUD com deduplicação e queries analíticas. Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.',
-      dependencies: ['storage-connection-pool']
+      dependencies: [completedTasks.connectionPool]
     })
-    await request('PUT', '/tasks/storage-post-repo', {
+    activeTasks.postRepo = task.id
+    await request('PUT', `/tasks/${task.id}`, {
       status: 'active',
       phase: 'implementation',
       files: {
@@ -123,13 +127,13 @@ async function seed() {
     })
     
     // QueueManager - em test
-    await request('POST', '/tasks', {
-      id: 'queue-manager',
+    task = await request('POST', '/tasks', {
       title: 'Implementar QueueManager para SQS',
       category: 'Queue/Core',
       description: 'Abstração sobre AWS SQS com retry e DLQ'
     })
-    await request('PUT', '/tasks/queue-manager', {
+    activeTasks.queueManager = task.id
+    await request('PUT', `/tasks/${task.id}`, {
       status: 'active',
       phase: 'test',
       files: {
@@ -145,13 +149,13 @@ async function seed() {
     })
     
     // API Health - em spec
-    await request('POST', '/tasks', {
-      id: 'api-health',
+    task = await request('POST', '/tasks', {
       title: 'Endpoints de health e status',
       category: 'API/Monitoring',
       description: 'Health checks para K8s e monitoramento'
     })
-    await request('PUT', '/tasks/api-health', {
+    activeTasks.apiHealth = task.id
+    await request('PUT', `/tasks/${task.id}`, {
       status: 'active',
       phase: 'spec',
       notes: {
@@ -165,61 +169,52 @@ async function seed() {
     
     const backlogTasks = [
       {
-        id: 'queue-loader-consumer',
         title: 'Implementar LoaderConsumer',
         category: 'Queue/Consumers',
         description: 'Consumir fila raw-data e salvar no banco',
-        dependencies: ['storage-post-repo', 'queue-manager']
+        dependencies: [activeTasks.postRepo, activeTasks.queueManager]
       },
       {
-        id: 'collector-twitter',
         title: 'Adapter para Twitter/X via Apify',
         category: 'Collectors/Adapters',
         description: 'Integração com Apify para coleta de tweets',
-        dependencies: ['queue-manager']
+        dependencies: [activeTasks.queueManager]
       },
       {
-        id: 'core-scheduler',
         title: 'Scheduler para coletas periódicas',
         category: 'Core/Orchestration',
-        description: 'Cron jobs distribuídos por projeto',
-        dependencies: ['collector-twitter', 'queue-loader-consumer']
+        description: 'Cron jobs distribuídos por projeto'
       },
       {
-        id: 'middleware-sentiment',
         title: 'Middleware de análise de sentimento',
         category: 'Middlewares/NLP',
         description: 'Integração com API de sentiment analysis'
       },
       {
-        id: 'api-analytics',
         title: 'API de analytics com agregações',
         category: 'API/Analytics',
         description: 'Endpoints para dashboards com cache Redis',
-        dependencies: ['storage-post-repo']
+        dependencies: [activeTasks.postRepo]
       },
       {
-        id: 'collector-instagram',
         title: 'Adapter para Instagram',
         category: 'Collectors/Adapters',
         description: 'Coleta via Apify com rate limit específico'
       },
       {
-        id: 'storage-migrations',
         title: 'Sistema de migrations para DB',
         category: 'Storage/Database',
         description: 'Versionamento de schema com rollback'
       },
       {
-        id: 'monitoring-grafana',
         title: 'Dashboards Grafana + Prometheus',
         category: 'Monitoring',
         description: 'Métricas de coleta, filas e performance'
       }
     ]
     
-    for (const task of backlogTasks) {
-      await request('POST', '/tasks', task)
+    for (const taskData of backlogTasks) {
+      await request('POST', '/tasks', taskData)
     }
     
     // 7. Buscar estatísticas finais

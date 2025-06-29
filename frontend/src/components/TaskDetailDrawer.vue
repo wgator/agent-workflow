@@ -1,0 +1,373 @@
+<script setup>
+import { ref, watch } from 'vue'
+
+const props = defineProps({
+  visible: {
+    type: Boolean,
+    default: false
+  },
+  taskId: {
+    type: String,
+    default: null
+  }
+})
+
+const emit = defineEmits(['update:visible', 'update-task', 'delete-task'])
+
+const taskDetails = ref(null)
+const loadingDetails = ref(false)
+
+// Watch for taskId changes to load details
+watch(() => props.taskId, async (newTaskId) => {
+  if (newTaskId) {
+    await loadTaskDetails(newTaskId)
+  } else {
+    taskDetails.value = null
+  }
+}, { immediate: true })
+
+// Methods
+async function loadTaskDetails(taskId) {
+  if (!taskId) return
+  
+  loadingDetails.value = true
+  try {
+    const response = await fetch(`/api/tasks/${taskId}`)
+    if (response.ok) {
+      taskDetails.value = await response.json()
+    } else {
+      // Fallback para dados básicos se endpoint não existir
+      console.warn('Endpoint /api/tasks/:id não encontrado, usando dados básicos')
+      taskDetails.value = { id: taskId }
+    }
+  } catch (error) {
+    console.warn('Erro ao carregar detalhes:', error)
+    taskDetails.value = { id: taskId }
+  } finally {
+    loadingDetails.value = false
+  }
+}
+
+function closeDrawer() {
+  emit('update:visible', false)
+}
+
+function updateTask(taskId, updates) {
+  emit('update-task', taskId, updates)
+  // Atualizar dados locais
+  if (taskDetails.value) {
+    Object.assign(taskDetails.value, updates)
+  }
+}
+
+function deleteTask(taskId) {
+  emit('delete-task', taskId)
+  closeDrawer()
+}
+
+// Helper methods
+function getStatusSeverity(status) {
+  const severityMap = {
+    'backlog': 'info',
+    'active': 'warning', 
+    'completed': 'success'
+  }
+  return severityMap[status] || 'info'
+}
+
+function getPhaseColor(phase) {
+  const colors = {
+    plan: '#3b82f6',
+    spec: '#8b5cf6',
+    detail: '#ec4899',
+    implementation: '#f59e0b',
+    test: '#10b981',
+    review: '#06b6d4'
+  }
+  return colors[phase] || '#6b7280'
+}
+
+function formatDate(dateString) {
+  if (!dateString) return '-'
+  const date = new Date(dateString)
+  return date.toLocaleDateString('pt-BR')
+}
+</script>
+
+<template>
+  <p-drawer 
+    :visible="visible"
+    @update:visible="$emit('update:visible', $event)"
+    position="right"
+    class="task-drawer"
+  >
+    <template #header>
+      <div class="drawer-header">
+        <div class="header-content">
+          <h3>{{ taskDetails?.title || 'Detalhes da Tarefa' }}</h3>
+          <p-button 
+            icon="pi pi-times" 
+            class="p-button-text p-button-rounded p-button-sm"
+            @click="closeDrawer"
+          />
+        </div>
+      </div>
+    </template>
+    
+    <div v-if="loadingDetails" class="loading-state">
+      <i class="pi pi-spin pi-spinner" style="font-size: 2rem"></i>
+      <p>Carregando detalhes...</p>
+    </div>
+    
+    <div v-else-if="taskDetails" class="task-details">
+      <!-- Task Overview Card -->
+      <p-card class="overview-card">
+        <template #content>
+          <div class="task-overview">
+            <div class="overview-item">
+              <span class="label">ID:</span>
+              <code class="task-id">{{ taskDetails.id }}</code>
+            </div>
+            <div class="overview-item">
+              <span class="label">Status:</span>
+              <p-tag 
+                :value="taskDetails.status" 
+                :severity="getStatusSeverity(taskDetails.status)"
+              />
+            </div>
+            <div class="overview-item" v-if="taskDetails.phase">
+              <span class="label">Fase:</span>
+              <span class="phase-badge" :style="{ backgroundColor: getPhaseColor(taskDetails.phase) }">
+                {{ taskDetails.phase }}
+              </span>
+            </div>
+          </div>
+        </template>
+      </p-card>
+      
+      <!-- Description -->
+      <p-card class="section-card">
+        <template #title>
+          <i class="pi pi-file-text"></i> Descrição
+        </template>
+        <template #content>
+          <p class="description-text">{{ taskDetails.description || 'Nenhuma descrição fornecida' }}</p>
+        </template>
+      </p-card>
+      
+      <!-- Actions Section -->
+      <p-card class="actions-card">
+        <template #title>
+          <i class="pi pi-cog"></i> Ações
+        </template>
+        <template #content>
+          <!-- Status Management -->
+          <div class="action-section">
+            <h5>Alterar Status</h5>
+            <div class="action-buttons">
+              <p-button 
+                v-if="taskDetails.status === 'backlog'"
+                label="Ativar Tarefa" 
+                icon="pi pi-play" 
+                class="p-button-success action-btn"
+                @click="updateTask(taskDetails.id, { status: 'active' })"
+              />
+              <p-button 
+                v-if="taskDetails.status === 'active'"
+                label="Completar" 
+                icon="pi pi-check" 
+                class="p-button-info action-btn"
+                @click="updateTask(taskDetails.id, { status: 'completed' })"
+              />
+              <p-button 
+                v-if="taskDetails.status === 'active'"
+                label="Voltar para Backlog" 
+                icon="pi pi-arrow-left" 
+                class="p-button-secondary action-btn"
+                @click="updateTask(taskDetails.id, { status: 'backlog' })"
+              />
+              <p-button 
+                v-if="taskDetails.status === 'completed'"
+                label="Reativar" 
+                icon="pi pi-refresh" 
+                class="p-button-warning action-btn"
+                @click="updateTask(taskDetails.id, { status: 'active' })"
+              />
+            </div>
+          </div>
+          
+          <!-- Danger Zone -->
+          <div class="action-section danger-zone">
+            <h5>Zona de Perigo</h5>
+            <p-button 
+              label="Remover Tarefa" 
+              icon="pi pi-trash" 
+              class="p-button-danger action-btn"
+              @click="deleteTask(taskDetails.id)"
+            />
+          </div>
+        </template>
+      </p-card>
+    </div>
+  </p-drawer>
+</template>
+
+<style scoped>
+/* Drawer Header */
+.drawer-header {
+  width: 100%;
+}
+
+.header-content {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+}
+
+.header-content h3 {
+  margin: 0;
+  color: #1e293b;
+  font-size: 1.125rem;
+  font-weight: 600;
+}
+
+/* Loading State */
+.loading-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem;
+  color: #6b7280;
+}
+
+/* Task Details */
+.task-details {
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+/* Overview Card */
+.overview-card {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+}
+
+.overview-card :deep(.p-card-content) {
+  padding: 1rem;
+}
+
+.task-overview {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.overview-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.overview-item .label {
+  font-weight: 500;
+  opacity: 0.9;
+}
+
+.overview-item .task-id {
+  background: rgba(255, 255, 255, 0.2);
+  color: white;
+  padding: 0.25rem 0.5rem;
+  border-radius: 4px;
+  font-family: 'Courier New', monospace;
+}
+
+/* Section Cards */
+.section-card {
+  margin-bottom: 0;
+}
+
+.section-card :deep(.p-card-title) {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 1rem;
+  font-weight: 600;
+  color: #374151;
+  margin-bottom: 0.75rem;
+}
+
+.section-card :deep(.p-card-content) {
+  padding: 0 1.5rem 1.5rem 1.5rem;
+}
+
+/* Description */
+.description-text {
+  margin: 0;
+  line-height: 1.6;
+  color: #4b5563;
+}
+
+/* Phase Badge */
+.phase-badge {
+  display: inline-block;
+  padding: 0.25rem 0.75rem;
+  font-size: 0.75rem;
+  border-radius: 9999px;
+  color: white;
+  font-weight: 500;
+}
+
+/* Actions Card */
+.actions-card {
+  margin-top: auto;
+  background: #f8fafc;
+  border: 2px solid #e2e8f0;
+}
+
+.actions-card :deep(.p-card-title) {
+  color: #1e293b;
+}
+
+.action-section {
+  margin-bottom: 1.5rem;
+}
+
+.action-section:last-child {
+  margin-bottom: 0;
+}
+
+.action-section h5 {
+  margin: 0 0 0.75rem 0;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #374151;
+}
+
+.action-buttons {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.action-btn {
+  justify-content: flex-start;
+}
+
+/* Danger Zone */
+.danger-zone {
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  border-radius: 8px;
+  padding: 1rem;
+  margin-top: 1rem;
+}
+
+.danger-zone h5 {
+  color: #dc2626;
+  margin-bottom: 0.75rem;
+}
+</style>
