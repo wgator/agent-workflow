@@ -23,15 +23,17 @@ O sistema utiliza 6 agentes especializados:
 seu-projeto/
 ├── .agent/                    # Comunicação entre agentes
 │   ├── tasks.json            # Todas as tarefas do projeto
-│   └── workspace/            # Artefatos temporários das tarefas ativas
-├── .prompts/                 # Prompts dos agentes
-│   ├── 1. PLAN.md
-│   ├── 2. SPECIFICATION.md
-│   ├── 3. TECHNICAL_DETAILING.md
-│   ├── 4. IMPLEMENTATION.md
-│   ├── 5. TEST.md
-│   └── 6. CODE_REVIEW.md
-└── BACKLOG.md                # Backlog do projeto
+│   ├── workspace/            # Artefatos temporários das tarefas ativas
+│   └── templates/            # Templates para documentação
+│       └── progress-template.md
+└── .prompts/                 # Prompts e regras dos agentes
+    ├── 1. PLAN.md
+    ├── 2. SPECIFICATION.md
+    ├── 3. TECHNICAL_DETAILING.md
+    ├── 4. IMPLEMENTATION.md
+    ├── 5. TEST.md
+    ├── 6. CODE_REVIEW.md
+    └── AGENT_WORKFLOW.md    # Livro de regras para todos os agentes
 ```
 
 ## 🆔 Sistema de IDs de Tarefas
@@ -80,10 +82,37 @@ cd seu-projeto
 agent-workflow init
 ```
 
-Isso criará:
-- Pasta `.agent/` com estrutura inicial
-- Pasta `.prompts/` com os prompts dos agentes
-- Template do `BACKLOG.md`
+O comando `init` irá:
+1. Solicitar o **nome** e **descrição** do seu projeto
+2. Criar a pasta `.agent/` com estrutura inicial
+3. Criar a pasta `.prompts/` com os prompts dos agentes
+4. Gerar o arquivo `tasks.json` com as informações do projeto
+
+**Exemplo de inicialização:**
+```
+🚀 Inicializando Agent Workflow...
+
+📝 Vamos configurar seu projeto:
+
+? Nome do projeto: Meu App Incrível
+? Descrição breve do projeto: Sistema de gestão de tarefas com IA
+
+✓ Criado .agent
+✓ Criado .agent/workspace
+✓ Criado .agent/templates
+✓ Criado .prompts
+✓ Criado .agent/tasks.json com informações do projeto
+✓ Criado .agent/templates/progress-template.md
+✓ Criado .prompts/AGENT_WORKFLOW.md
+✓ Copiado .prompts/1. PLAN.md
+✓ Copiado .prompts/2. SPECIFICATION.md
+✓ Copiado .prompts/3. TECHNICAL_DETAILING.md
+✓ Copiado .prompts/4. IMPLEMENTATION.md
+✓ Copiado .prompts/5. TEST.md
+✓ Copiado .prompts/6. CODE_REVIEW.md
+
+✅ Agent Workflow inicializado com sucesso!
+```
 
 ## 💻 Uso
 
@@ -105,14 +134,17 @@ Acesse http://localhost:3000 para visualizar o dashboard.
 - `PUT /api/tasks/:id` - Atualizar tarefa
 - `DELETE /api/tasks/:id` - Remover tarefa
 - `POST /api/tasks/:id/complete` - Completar tarefa
-- `GET /api/project` - Informações e estatísticas do projeto
-- `PUT /api/project/meta` - Atualizar meta do projeto
+- `GET /api/project` - Informações do projeto (nome, descrição, meta, estatísticas)
+- `PUT /api/project/meta` - Atualizar meta e informações do projeto
 
 ### Estrutura do tasks.json
 
 ```json
 {
   "meta": {
+    "name": "Meu App Incrível",
+    "description": "Sistema de gestão de tarefas com IA",
+    "created": "2025-01-15T10:00:00Z",
     "updated": "2025-01-15T10:00:00Z",
     "focus": "Pipeline básico de coleta"
   },
@@ -160,9 +192,10 @@ Para usar com Claude Desktop, adicione ao `claude_desktop_config.json`:
 ## 📋 Workflow dos Agentes
 
 ### 1. PLAN
-- Analisa BACKLOG.md e código existente
+- Analisa tasks.json e código existente
 - Cria ID único no formato YYMMDD-nome-curto
 - Seleciona tarefa e marca como `status: 'active'`
+- Inicia documentação em `workspace/progress-{task-id}.md`
 - Atualiza `tasks.json`
 
 ### 2. SPECIFICATION  
@@ -197,7 +230,12 @@ Para usar com Claude Desktop, adicione ao `claude_desktop_config.json`:
 
 ## 🎨 Dashboard
 
-O dashboard web oferece duas visualizações:
+O dashboard web oferece:
+
+### Barra Superior
+- **Nome do projeto** e descrição configurados durante `init`
+- **Foco atual** do projeto (meta editável)
+- Botão de refresh para atualizar dados
 
 ### Visualização Backlog (Lista)
 - Lista todas as tarefas com filtros
@@ -215,9 +253,21 @@ O dashboard web oferece duas visualizações:
 
 1. **IDs Consistentes**: Use sempre o formato YYMMDD-nome-curto
 2. **Uma Tarefa por Vez**: Agentes devem focar em uma tarefa ativa
-3. **Workspace Limpo**: Deletar arquivos temporários após conclusão
-4. **Notes Descritivas**: Documentar decisões importantes em cada fase
-5. **Commits Atômicos**: Cada fase pode gerar um commit Git
+3. **Documentação Contínua**: Atualizar progress file a cada marco significativo
+4. **Workspace Rico**: Usar workspace para documentação detalhada, não apenas artefatos
+5. **Notes Descritivas**: Resumir decisões importantes no tasks.json
+6. **Handoff Claro**: Sempre deixar próximos passos explícitos para continuidade
+7. **Commits Atômicos**: Cada fase pode gerar um commit Git
+
+### Documentação de Progresso
+
+Todos os agentes devem:
+- Copiar `.agent/templates/progress-template.md` ao iniciar uma task
+- Manter o arquivo atualizado durante todo o trabalho
+- Usar o espaço livre para documentação rica e introspectiva
+- Preservar o arquivo como histórico após conclusão
+
+Veja `.prompts/AGENT_WORKFLOW.md` para regras completas.
 
 ## 🤝 Contribuindo
 

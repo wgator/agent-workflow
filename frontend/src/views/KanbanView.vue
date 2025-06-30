@@ -259,8 +259,8 @@ function getPhaseColor(phase) {
 
 .kanban-board {
   display: grid;
-  grid-template-columns: repeat(8, minmax(18rem, 1fr));
-  gap: 1rem;
+  grid-template-columns: repeat(8, minmax(16rem, 1fr));
+  gap: 0.5rem;
   overflow-x: auto;
   padding-bottom: 1rem;
 }
@@ -268,10 +268,10 @@ function getPhaseColor(phase) {
 .kanban-column {
   background: #f8fafc;
   border-radius: 8px;
-  padding: 1rem;
+  padding: 0.8rem;
   min-height: 500px;
-  min-width: 200px;
-  max-width: 35rem;
+  /* min-width: 200px;
+  max-width: 35rem; */
 }
 
 /* Cores das colunas */
@@ -323,6 +323,7 @@ function getPhaseColor(phase) {
 
 .draggable-area {
   min-height: 100px;
+  padding: 0.2em!important;
   display: flex;
   flex-direction: column;
   gap: 0.75rem;
@@ -517,7 +518,7 @@ function getPhaseColor(phase) {
 
 /* Responsive */
 @media (max-width: 1024px) {
-  .kanban-board { grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr)); }
+  .kanban-board { grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr)); }
 }
 
 @media (max-width: 768px) {
@@ -526,5 +527,12 @@ function getPhaseColor(phase) {
 
 @media (max-width: 480px) {
   .kanban-board { grid-template-columns: 1fr; }
+}
+</style>
+
+<style >
+
+.p-card-body  {
+  padding: 0.9rem;
 }
 </style>

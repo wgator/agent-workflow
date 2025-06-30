@@ -100,16 +100,13 @@ function formatDate(dateString) {
     @update:visible="$emit('update:visible', $event)"
     position="right"
     class="task-drawer"
+    :modal="false"
+    :dismissable="true"
   >
     <template #header>
       <div class="drawer-header">
         <div class="header-content">
           <h3>{{ taskDetails?.title || 'Detalhes da Tarefa' }}</h3>
-          <p-button 
-            icon="pi pi-times" 
-            class="p-button-text p-button-rounded p-button-sm"
-            @click="closeDrawer"
-          />
         </div>
       </div>
     </template>
@@ -155,6 +152,78 @@ function formatDate(dateString) {
         </template>
       </p-card>
       
+      <!-- Metadata -->
+      <p-card class="section-card">
+        <template #title>
+          <i class="pi pi-info-circle"></i> Metadados
+        </template>
+        <template #content>
+          <div class="metadata-grid">
+            <div class="meta-item">
+              <label>Categoria:</label>
+              <p-tag :value="taskDetails.category || 'Sem categoria'" />
+            </div>
+            <div class="meta-item">
+              <label>Prioridade:</label>
+              <span>{{ taskDetails.priority || 'Normal' }}</span>
+            </div>
+            <div class="meta-item">
+              <label>Estimativa:</label>
+              <span>{{ taskDetails.estimated_hours ? `${taskDetails.estimated_hours}h` : 'N/A' }}</span>
+            </div>
+            <div class="meta-item">
+              <label>Assignee:</label>
+              <span>{{ taskDetails.assignee || 'Não atribuído' }}</span>
+            </div>
+            <div class="meta-item">
+              <label>Due Date:</label>
+              <span>{{ taskDetails.due_date ? formatDate(taskDetails.due_date) : 'N/A' }}</span>
+            </div>
+            <div class="meta-item">
+              <label>Criada em:</label>
+              <span>{{ formatDate(taskDetails.created_at) }}</span>
+            </div>
+            <div class="meta-item">
+              <label>Atualizada em:</label>
+              <span>{{ formatDate(taskDetails.updated_at) }}</span>
+            </div>
+          </div>
+        </template>
+      </p-card>
+      
+      <!-- Dependencies -->
+      <p-card v-if="taskDetails.dependencies?.length || taskDetails.blocked_by?.length" class="section-card">
+        <template #title>
+          <i class="pi pi-link"></i> Dependências
+        </template>
+        <template #content>
+          <div v-if="taskDetails.dependencies?.length" class="dependency-section">
+            <h5>Bloqueia:</h5>
+            <div class="dependency-tags">
+              <p-tag v-for="dep in taskDetails.dependencies" :key="dep" :value="dep" severity="warning" />
+            </div>
+          </div>
+          <div v-if="taskDetails.blocked_by?.length" class="dependency-section">
+            <h5>Bloqueada por:</h5>
+            <div class="dependency-tags">
+              <p-tag v-for="blocker in taskDetails.blocked_by" :key="blocker" :value="blocker" severity="danger" />
+            </div>
+          </div>
+        </template>
+      </p-card>
+      
+      <!-- Labels/Tags -->
+      <p-card v-if="taskDetails.labels?.length" class="section-card">
+        <template #title>
+          <i class="pi pi-tags"></i> Labels
+        </template>
+        <template #content>
+          <div class="labels-container">
+            <p-tag v-for="label in taskDetails.labels" :key="label" :value="label" class="label-tag" />
+          </div>
+        </template>
+      </p-card>
+      
       <!-- Actions Section -->
       <p-card class="actions-card">
         <template #title>
@@ -196,6 +265,49 @@ function formatDate(dateString) {
             </div>
           </div>
           
+          <!-- Phase Management -->
+          <div v-if="taskDetails.status === 'active'" class="action-section">
+            <h5>Definir Fase</h5>
+            <div class="phase-grid">
+              <p-button 
+                label="Plan" 
+                class="phase-btn"
+                :class="{ 'p-button-outlined': taskDetails.phase !== 'plan' }"
+                @click="updateTask(taskDetails.id, { phase: 'plan' })"
+              />
+              <p-button 
+                label="Spec" 
+                class="phase-btn"
+                :class="{ 'p-button-outlined': taskDetails.phase !== 'spec' }"
+                @click="updateTask(taskDetails.id, { phase: 'spec' })"
+              />
+              <p-button 
+                label="Detail" 
+                class="phase-btn"
+                :class="{ 'p-button-outlined': taskDetails.phase !== 'detail' }"
+                @click="updateTask(taskDetails.id, { phase: 'detail' })"
+              />
+              <p-button 
+                label="Implement" 
+                class="phase-btn"
+                :class="{ 'p-button-outlined': taskDetails.phase !== 'implementation' }"
+                @click="updateTask(taskDetails.id, { phase: 'implementation' })"
+              />
+              <p-button 
+                label="Test" 
+                class="phase-btn"
+                :class="{ 'p-button-outlined': taskDetails.phase !== 'test' }"
+                @click="updateTask(taskDetails.id, { phase: 'test' })"
+              />
+              <p-button 
+                label="Review" 
+                class="phase-btn"
+                :class="{ 'p-button-outlined': taskDetails.phase !== 'review' }"
+                @click="updateTask(taskDetails.id, { phase: 'review' })"
+              />
+            </div>
+          </div>
+          
           <!-- Danger Zone -->
           <div class="action-section danger-zone">
             <h5>Zona de Perigo</h5>
@@ -213,6 +325,7 @@ function formatDate(dateString) {
 </template>
 
 <style scoped>
+
 /* Drawer Header */
 .drawer-header {
   width: 100%;
@@ -311,6 +424,69 @@ function formatDate(dateString) {
   color: #4b5563;
 }
 
+/* Metadata Grid */
+.metadata-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0.75rem;
+}
+
+.meta-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.5rem 0;
+  border-bottom: 1px solid #f3f4f6;
+}
+
+.meta-item:last-child {
+  border-bottom: none;
+}
+
+.meta-item label {
+  font-weight: 500;
+  color: #6b7280;
+  font-size: 0.875rem;
+}
+
+.meta-item span {
+  color: #374151;
+  font-size: 0.875rem;
+}
+
+/* Dependencies */
+.dependency-section {
+  margin-bottom: 1rem;
+}
+
+.dependency-section:last-child {
+  margin-bottom: 0;
+}
+
+.dependency-section h5 {
+  margin: 0 0 0.5rem 0;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #374151;
+}
+
+.dependency-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+/* Labels */
+.labels-container {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.label-tag {
+  font-size: 0.75rem;
+}
+
 /* Phase Badge */
 .phase-badge {
   display: inline-block;
@@ -357,6 +533,18 @@ function formatDate(dateString) {
   justify-content: flex-start;
 }
 
+/* Phase Grid */
+.phase-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.5rem;
+}
+
+.phase-btn {
+  font-size: 0.75rem;
+  padding: 0.5rem;
+}
+
 /* Danger Zone */
 .danger-zone {
   background: #fef2f2;
@@ -369,5 +557,21 @@ function formatDate(dateString) {
 .danger-zone h5 {
   color: #dc2626;
   margin-bottom: 0.75rem;
+}
+</style>
+
+<style>
+/* Largura do drawer */
+.task-drawer, .p-drawer {
+  width: 40vw !important;
+  min-width: 25rem !important;
+  max-width: 1000px !important;
+}
+
+@media (max-width: 768px) {
+  .task-drawer, .p-drawer {
+    width: 100% !important;
+    min-width: unset !important;
+  }
 }
 </style>

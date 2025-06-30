@@ -21,8 +21,8 @@ class AgentWorkflowServer {
     this.app.use(cors())
     this.app.use(express.json())
     
-    // Serve o dashboard estático
-    this.app.use(express.static(join(dirname(__dirname), 'dashboard')))
+    // Serve o dashboard estático do frontend
+    this.app.use(express.static(join(dirname(dirname(__dirname)), 'frontend', 'dist')))
     
     // Remover servir node_modules (voltando para CDN)
   }

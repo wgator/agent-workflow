@@ -9,6 +9,7 @@ const loading = ref(false)
 const activeView = ref('0')
 const tasks = ref([])
 const projectMeta = ref({ focus: 'Carregando...' })
+const projectInfo = ref({ name: 'Agent Workflow', description: '' })
 const toasts = ref([])
 
 // Toast helper
@@ -38,6 +39,10 @@ async function loadData() {
     const projectRes = await fetch('/api/project')
     const projectData = await projectRes.json()
     projectMeta.value = projectData.meta
+    if (projectData.meta.name) {
+      projectInfo.value.name = projectData.meta.name
+      projectInfo.value.description = projectData.meta.description || ''
+    }
     
   } catch (error) {
     console.error('Erro ao carregar dados:', error)
@@ -100,12 +105,23 @@ onMounted(() => {
   <div class="app-container">
     <!-- Navbar -->
     <header class="navbar">
-      <div class="navbar-brand">
-        <i class="pi pi-th-large"></i>
-        Agent Workflow
+      <div class="navbar-left">
+        <div class="navbar-brand">
+          <i class="pi pi-sitemap"></i>
+          <div class="project-name">
+            {{ projectInfo.name }}
+            <div class="project-description" v-if="projectInfo.description">
+              {{ projectInfo.description }}
+            </div>            
+          </div>
+        </div>
+
       </div>
       <div class="navbar-info">
-        <span class="project-focus">{{ projectMeta.focus }}</span>
+        <span class="project-focus">
+          <i class="pi pi-bolt"></i>
+          {{ projectMeta.focus }}
+        </span>
         <p-button 
           icon="pi pi-refresh" 
           class="p-button-text p-button-sm"
@@ -168,6 +184,7 @@ onMounted(() => {
 
 #app {
   display: flex;
+  width: 100%!important;
   max-width: 100%!important;
 }
 
@@ -175,6 +192,7 @@ onMounted(() => {
   min-height: 100vh;
   display: flex;
   flex-direction: column;
+  width: 100%;
 }
 
 .navbar {
@@ -186,10 +204,13 @@ onMounted(() => {
   justify-content: space-between;
 }
 
+.navbar-left {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
 .navbar-brand {
-  font-size: 1.25rem;
-  font-weight: 600;
-  color: #1e293b;
   display: flex;
   align-items: center;
   gap: 0.5rem;
@@ -197,6 +218,20 @@ onMounted(() => {
 
 .navbar-brand i {
   color: #3b82f6;
+  font-size: 1.8em
+}
+
+.project-name {
+  font-size: 1.3rem;
+  font-weight: 800;
+  line-height: 1em;
+  color: #1e293b;
+}
+
+.project-description {
+  color: #64748b;
+  font-size: 0.85rem;
+  font-weight: 300;
 }
 
 .navbar-info {
@@ -206,16 +241,28 @@ onMounted(() => {
 }
 
 .project-focus {
-  color: #64748b;
+  color: #475569;
   font-size: 0.875rem;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  background: #f1f5f9;
+  padding: 0.5rem 1rem;
+  border-radius: 0.375rem;
+}
+
+.project-focus i {
+  color: #f59e0b;
+  font-size: 0.75rem;
 }
 
 .main-content {
   flex: 1;
   padding: 2rem;
-  max-width: 1400px;
   margin: 0 auto;
   width: 100%;
+  max-width: 100%;
 }
 
 :deep(.p-tab i) {

@@ -37,20 +37,20 @@ class TaskValidator {
                   items: { type: 'string' } 
                 },
                 created_at: { type: 'string', format: 'date-time' },
-                order: { type: 'string' },
+                order: { type: ["string", "number"] },
                 
                 // Campos opcionais para tarefas ativas
                 phase: { 
-                  type: 'string',
-                  enum: ['plan', 'spec', 'detail', 'implementation', 'test', 'review']
+                  type: ["string", "null"],
+                  enum: ['plan', 'spec', 'detail', 'implementation', 'test', 'review', null]
                 },
-                started_at: { type: 'string', format: 'date-time' },
-                completed_at: { type: 'string', format: 'date-time' },
+                started_at: { type: ["string", "null"], format: 'date-time' },
+                completed_at: { type: ["string", "null"], format: 'date-time' },
                 phases_completed: {
                   type: 'array',
                   items: { 
-                    type: 'string',
-                    enum: ['plan', 'spec', 'detail', 'implementation', 'test', 'review']
+                    type: ["string", "null"],
+                    enum: ['plan', 'spec', 'detail', 'implementation', 'test', 'review', null]
                   }
                 },
                 files: {
