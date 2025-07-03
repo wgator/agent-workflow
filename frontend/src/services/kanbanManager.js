@@ -1,3 +1,5 @@
+import { TaskFilters } from '../utils/taskFilters.js'
+
 // ========================
 // KANBAN CONFIGURATION
 // ========================
@@ -32,31 +34,8 @@ export const DRAG_CONFIG = {
 // ========================
 export const KanbanTaskManager = {
   filterTasks(tasks, filters) {
-    let filtered = [...tasks]
-    
-    if (filters.searchQuery) {
-      const search = filters.searchQuery.toLowerCase()
-      filtered = filtered.filter(task => 
-        task.title.toLowerCase().includes(search) ||
-        task.category?.toLowerCase().includes(search) ||
-        task.status.toLowerCase().includes(search) ||
-        task.id.toLowerCase().includes(search)
-      )
-    }
-    
-    if (filters.category) {
-      filtered = filtered.filter(task => task.category === filters.category)
-    }
-    
-    if (filters.status) {
-      filtered = filtered.filter(task => task.status === filters.status)
-    }
-    
-    if (filters.phase) {
-      filtered = filtered.filter(task => task.phase === filters.phase)
-    }
-    
-    return filtered
+    // Delegar para o utilitário centralizado
+    return TaskFilters.filterTasks(tasks, filters)
   },
   
   organizeTasksByColumn(tasks) {

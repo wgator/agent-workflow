@@ -1,5 +1,5 @@
 <script setup>
-import { ref, watch } from 'vue'
+import { ref, watch, computed } from 'vue'
 
 const props = defineProps({
   visible: {
@@ -16,6 +16,59 @@ const emit = defineEmits(['update:visible', 'update-task', 'delete-task'])
 
 const taskDetails = ref(null)
 const loadingDetails = ref(false)
+
+// Constants
+const allPhases = ['plan', 'spec', 'detail', 'implementation', 'test', 'review']
+
+// Computed properties
+const hasFiles = computed(() => {
+  if (!taskDetails.value?.files) return false
+  const { planned, created, modified, tested } = taskDetails.value.files
+  return (planned?.length > 0) || (created?.length > 0) || 
+         (modified?.length > 0) || (tested?.length > 0)
+})
+
+const hasNotes = computed(() => {
+  return taskDetails.value?.notes && Object.keys(taskDetails.value.notes).length > 0
+})
+
+const timelineEvents = computed(() => {
+  if (!taskDetails.value) return []
+  
+  const events = []
+  
+  // Created event
+  if (taskDetails.value.created_at) {
+    events.push({
+      title: 'Criada',
+      date: formatDateTime(taskDetails.value.created_at),
+      icon: 'pi pi-plus',
+      status: 'created'
+    })
+  }
+  
+  // Started event
+  if (taskDetails.value.started_at) {
+    events.push({
+      title: 'Iniciada',
+      date: formatDateTime(taskDetails.value.started_at),
+      icon: 'pi pi-play',
+      status: 'started'
+    })
+  }
+  
+  // Completed event
+  if (taskDetails.value.completed_at) {
+    events.push({
+      title: 'Completada',
+      date: formatDateTime(taskDetails.value.completed_at),
+      icon: 'pi pi-check',
+      status: 'completed'
+    })
+  }
+  
+  return events
+})
 
 // Watch for taskId changes to load details
 watch(() => props.taskId, async (newTaskId) => {
@@ -87,10 +140,42 @@ function getPhaseColor(phase) {
   return colors[phase] || '#6b7280'
 }
 
+function getPhaseIcon(phase) {
+  const icons = {
+    plan: 'pi pi-lightbulb',
+    spec: 'pi pi-file-edit',
+    detail: 'pi pi-sitemap',
+    implementation: 'pi pi-code',
+    test: 'pi pi-check-square',
+    review: 'pi pi-eye'
+  }
+  return icons[phase] || 'pi pi-circle'
+}
+
+function getPhaseLabel(phase) {
+  const labels = {
+    plan: 'Planejamento',
+    spec: 'Especificação',
+    detail: 'Detalhamento',
+    implementation: 'Implementação',
+    test: 'Testes',
+    review: 'Revisão'
+  }
+  return labels[phase] || phase
+}
+
 function formatDate(dateString) {
   if (!dateString) return '-'
   const date = new Date(dateString)
   return date.toLocaleDateString('pt-BR')
+}
+
+function formatDateTime(dateString) {
+  if (!dateString) return '-'
+  const date = new Date(dateString)
+  const dateStr = date.toLocaleDateString('pt-BR')
+  const timeStr = date.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
+  return `${dateStr} às ${timeStr}`
 }
 </script>
 
@@ -133,10 +218,56 @@ function formatDate(dateString) {
               />
             </div>
             <div class="overview-item" v-if="taskDetails.phase">
-              <span class="label">Fase:</span>
+              <span class="label">Fase Atual:</span>
               <span class="phase-badge" :style="{ backgroundColor: getPhaseColor(taskDetails.phase) }">
                 {{ taskDetails.phase }}
               </span>
+            </div>
+            <div class="overview-item" v-if="taskDetails.order !== undefined">
+              <span class="label">Ordem:</span>
+              <p-badge :value="String(taskDetails.order)" severity="info" />
+            </div>
+          </div>
+        </template>
+      </p-card>
+      
+      <!-- Progress Timeline -->
+      <p-card class="section-card" v-if="taskDetails.status !== 'backlog'">
+        <template #title>
+          <i class="pi pi-chart-line"></i> Progresso
+        </template>
+        <template #content>
+          <!-- Timeline -->
+          <div class="timeline-section">
+            <p-timeline :value="timelineEvents" layout="horizontal" class="custom-timeline">
+              <template #marker="slotProps">
+                <span class="timeline-marker" :class="slotProps.item.status">
+                  <i :class="slotProps.item.icon"></i>
+                </span>
+              </template>
+              <template #content="slotProps">
+                <div class="timeline-content">
+                  <p class="timeline-title">{{ slotProps.item.title }}</p>
+                  <p class="timeline-date">{{ slotProps.item.date }}</p>
+                </div>
+              </template>
+            </p-timeline>
+          </div>
+          
+          <!-- Phases Progress -->
+          <div class="phases-progress" v-if="taskDetails.phases_completed?.length > 0 || taskDetails.phase">
+            <h5>Fases Completadas</h5>
+            <div class="phase-chips">
+              <p-chip 
+                v-for="phase in allPhases" 
+                :key="phase"
+                :label="phase"
+                :class="{
+                  'completed': taskDetails.phases_completed?.includes(phase),
+                  'current': taskDetails.phase === phase
+                }"
+                :icon="getPhaseIcon(phase)"
+              />
             </div>
           </div>
         </template>
@@ -148,78 +279,165 @@ function formatDate(dateString) {
           <i class="pi pi-file-text"></i> Descrição
         </template>
         <template #content>
-          <p class="description-text">{{ taskDetails.description || 'Nenhuma descrição fornecida' }}</p>
+          <p-textarea 
+            v-model="taskDetails.description" 
+            :disabled="true"
+            rows="3"
+            auto-resize
+            class="w-full"
+            placeholder="Nenhuma descrição fornecida"
+          />
         </template>
       </p-card>
       
       <!-- Metadata -->
       <p-card class="section-card">
         <template #title>
-          <i class="pi pi-info-circle"></i> Metadados
+          <i class="pi pi-info-circle"></i> Informações
         </template>
         <template #content>
           <div class="metadata-grid">
             <div class="meta-item">
               <label>Categoria:</label>
-              <p-tag :value="taskDetails.category || 'Sem categoria'" />
-            </div>
-            <div class="meta-item">
-              <label>Prioridade:</label>
-              <span>{{ taskDetails.priority || 'Normal' }}</span>
-            </div>
-            <div class="meta-item">
-              <label>Estimativa:</label>
-              <span>{{ taskDetails.estimated_hours ? `${taskDetails.estimated_hours}h` : 'N/A' }}</span>
-            </div>
-            <div class="meta-item">
-              <label>Assignee:</label>
-              <span>{{ taskDetails.assignee || 'Não atribuído' }}</span>
-            </div>
-            <div class="meta-item">
-              <label>Due Date:</label>
-              <span>{{ taskDetails.due_date ? formatDate(taskDetails.due_date) : 'N/A' }}</span>
+              <p-input-text 
+                v-model="taskDetails.category" 
+                :disabled="true"
+                placeholder="Sem categoria"
+                class="meta-input"
+              />
             </div>
             <div class="meta-item">
               <label>Criada em:</label>
-              <span>{{ formatDate(taskDetails.created_at) }}</span>
+              <span class="date-display">
+                <i class="pi pi-calendar"></i>
+                {{ formatDateTime(taskDetails.created_at) }}
+              </span>
             </div>
-            <div class="meta-item">
-              <label>Atualizada em:</label>
-              <span>{{ formatDate(taskDetails.updated_at) }}</span>
+            <div class="meta-item" v-if="taskDetails.started_at">
+              <label>Iniciada em:</label>
+              <span class="date-display">
+                <i class="pi pi-play"></i>
+                {{ formatDateTime(taskDetails.started_at) }}
+              </span>
+            </div>
+            <div class="meta-item" v-if="taskDetails.completed_at">
+              <label>Completada em:</label>
+              <span class="date-display">
+                <i class="pi pi-check-circle"></i>
+                {{ formatDateTime(taskDetails.completed_at) }}
+              </span>
             </div>
           </div>
+        </template>
+      </p-card>
+      
+      <!-- Files -->
+      <p-card class="section-card" v-if="hasFiles">
+        <template #title>
+          <i class="pi pi-folder"></i> Arquivos
+        </template>
+        <template #content>
+          <p-tab-view>
+            <p-tab-panel 
+              v-if="taskDetails.files?.planned?.length" 
+              header="Planejados"
+              :pt="{ headerAction: { class: 'file-tab-header' } }"
+            >
+              <div class="file-list">
+                <div v-for="file in taskDetails.files.planned" :key="file" class="file-item">
+                  <i class="pi pi-file-o"></i>
+                  <span>{{ file }}</span>
+                </div>
+              </div>
+            </p-tab-panel>
+            <p-tab-panel 
+              v-if="taskDetails.files?.created?.length" 
+              header="Criados"
+              :pt="{ headerAction: { class: 'file-tab-header' } }"
+            >
+              <div class="file-list">
+                <div v-for="file in taskDetails.files.created" :key="file" class="file-item created">
+                  <i class="pi pi-file"></i>
+                  <span>{{ file }}</span>
+                </div>
+              </div>
+            </p-tab-panel>
+            <p-tab-panel 
+              v-if="taskDetails.files?.modified?.length" 
+              header="Modificados"
+              :pt="{ headerAction: { class: 'file-tab-header' } }"
+            >
+              <div class="file-list">
+                <div v-for="file in taskDetails.files.modified" :key="file" class="file-item modified">
+                  <i class="pi pi-file-edit"></i>
+                  <span>{{ file }}</span>
+                </div>
+              </div>
+            </p-tab-panel>
+            <p-tab-panel 
+              v-if="taskDetails.files?.tested?.length" 
+              header="Testados"
+              :pt="{ headerAction: { class: 'file-tab-header' } }"
+            >
+              <div class="file-list">
+                <div v-for="file in taskDetails.files.tested" :key="file" class="file-item tested">
+                  <i class="pi pi-check-square"></i>
+                  <span>{{ file }}</span>
+                </div>
+              </div>
+            </p-tab-panel>
+          </p-tab-view>
+        </template>
+      </p-card>
+      
+      <!-- Notes -->
+      <p-card class="section-card" v-if="hasNotes">
+        <template #title>
+          <i class="pi pi-comment"></i> Notas por Fase
+        </template>
+        <template #content>
+          <p-accordion>
+            <p-accordion-tab 
+              v-for="(note, phase) in taskDetails.notes" 
+              :key="phase"
+              :header="getPhaseLabel(phase)"
+              :pt="{ 
+                header: { 
+                  class: phase === taskDetails.phase ? 'current-phase-note' : '' 
+                } 
+              }"
+            >
+              <template #headericon>
+                <i :class="getPhaseIcon(phase)"></i>
+              </template>
+              <p-textarea 
+                v-model="taskDetails.notes[phase]" 
+                :disabled="true"
+                size="small"
+                auto-resize
+                rows="2"
+                class="w-full note-textarea"
+              />
+            </p-accordion-tab>
+          </p-accordion>
         </template>
       </p-card>
       
       <!-- Dependencies -->
-      <p-card v-if="taskDetails.dependencies?.length || taskDetails.blocked_by?.length" class="section-card">
+      <p-card v-if="taskDetails.dependencies?.length" class="section-card">
         <template #title>
           <i class="pi pi-link"></i> Dependências
         </template>
         <template #content>
-          <div v-if="taskDetails.dependencies?.length" class="dependency-section">
-            <h5>Bloqueia:</h5>
-            <div class="dependency-tags">
-              <p-tag v-for="dep in taskDetails.dependencies" :key="dep" :value="dep" severity="warning" />
-            </div>
-          </div>
-          <div v-if="taskDetails.blocked_by?.length" class="dependency-section">
-            <h5>Bloqueada por:</h5>
-            <div class="dependency-tags">
-              <p-tag v-for="blocker in taskDetails.blocked_by" :key="blocker" :value="blocker" severity="danger" />
-            </div>
-          </div>
-        </template>
-      </p-card>
-      
-      <!-- Labels/Tags -->
-      <p-card v-if="taskDetails.labels?.length" class="section-card">
-        <template #title>
-          <i class="pi pi-tags"></i> Labels
-        </template>
-        <template #content>
-          <div class="labels-container">
-            <p-tag v-for="label in taskDetails.labels" :key="label" :value="label" class="label-tag" />
+          <div class="dependency-section">
+            <p-chip 
+              v-for="dep in taskDetails.dependencies" 
+              :key="dep" 
+              :label="dep" 
+              removable
+              :pt="{ root: { class: 'dependency-chip' } }"
+              @remove="() => {}"
+            />
           </div>
         </template>
       </p-card>
@@ -447,6 +665,7 @@ function formatDate(dateString) {
   font-weight: 500;
   color: #6b7280;
   font-size: 0.875rem;
+  min-width: 120px;
 }
 
 .meta-item span {
@@ -454,37 +673,175 @@ function formatDate(dateString) {
   font-size: 0.875rem;
 }
 
-/* Dependencies */
-.dependency-section {
-  margin-bottom: 1rem;
+.meta-input {
+  flex: 1;
+  max-width: 60%;
 }
 
-.dependency-section:last-child {
-  margin-bottom: 0;
+.date-display {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
 }
 
-.dependency-section h5 {
-  margin: 0 0 0.5rem 0;
+.date-display i {
+  font-size: 0.875rem;
+  color: #9ca3af;
+}
+
+/* Timeline Section */
+.timeline-section {
+  margin-bottom: 2rem;
+}
+
+.custom-timeline :deep(.p-timeline-event-opposite) {
+  display: none;
+}
+
+.timeline-marker {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  border-radius: 50%;
+  background: #e5e7eb;
+  color: #6b7280;
+}
+
+.timeline-marker.created {
+  background: #dbeafe;
+  color: #3b82f6;
+}
+
+.timeline-marker.started {
+  background: #fef3c7;
+  color: #f59e0b;
+}
+
+.timeline-marker.completed {
+  background: #d1fae5;
+  color: #10b981;
+}
+
+.timeline-content {
+  text-align: center;
+  margin-top: 0.5rem;
+}
+
+.timeline-title {
+  font-weight: 600;
+  font-size: 0.875rem;
+  margin: 0;
+  color: #374151;
+}
+
+.timeline-date {
+  font-size: 0.75rem;
+  color: #6b7280;
+  margin: 0.25rem 0 0 0;
+}
+
+/* Phases Progress */
+.phases-progress {
+  margin-top: 1.5rem;
+}
+
+.phases-progress h5 {
+  margin: 0 0 0.75rem 0;
   font-size: 0.875rem;
   font-weight: 600;
   color: #374151;
 }
 
-.dependency-tags {
+.phase-chips {
   display: flex;
   flex-wrap: wrap;
   gap: 0.5rem;
 }
 
-/* Labels */
-.labels-container {
+.phase-chips :deep(.p-chip) {
+  background: #f3f4f6;
+  color: #6b7280;
+  border: 1px solid #e5e7eb;
+}
+
+.phase-chips :deep(.p-chip.completed) {
+  background: #d1fae5;
+  color: #065f46;
+  border-color: #a7f3d0;
+}
+
+.phase-chips :deep(.p-chip.current) {
+  background: #fef3c7;
+  color: #92400e;
+  border-color: #fde68a;
+  font-weight: 600;
+}
+
+/* Files Section */
+.file-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.file-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem;
+  background: #f9fafb;
+  border-radius: 4px;
+  font-size: 0.875rem;
+  color: #374151;
+}
+
+.file-item i {
+  color: #6b7280;
+}
+
+.file-item.created i {
+  color: #10b981;
+}
+
+.file-item.modified i {
+  color: #f59e0b;
+}
+
+.file-item.tested i {
+  color: #3b82f6;
+}
+
+/* File tabs */
+:deep(.file-tab-header) {
+  font-size: 0.875rem !important;
+}
+
+.p-textarea {
+  width: 100%
+}
+
+/* Notes Section */
+.note-textarea {
+  /* font-size: 0.875rem; */
+}
+
+:deep(.current-phase-note) {
+  background: #fef3c7 !important;
+}
+
+/* Dependencies */
+.dependency-section {
   display: flex;
   flex-wrap: wrap;
   gap: 0.5rem;
 }
 
-.label-tag {
-  font-size: 0.75rem;
+:deep(.dependency-chip) {
+  background: #fef3c7 !important;
+  color: #92400e !important;
+  border: 1px solid #fde68a !important;
 }
 
 /* Phase Badge */

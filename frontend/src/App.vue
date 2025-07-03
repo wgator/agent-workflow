@@ -30,19 +30,27 @@ function showToast(severity, summary, detail) {
 async function loadData() {
   loading.value = true
   try {
-    // Load tasks
-    const tasksRes = await fetch('/api/tasks')
+
+    const [tasksRes, projectRes] = await Promise.all([
+      fetch('/api/tasks'),
+      fetch('/api/project')
+    ])
+
+    // Error handling no response level
+    if (!tasksRes.ok) throw new Error('Failed to load tasks')
+    if (!projectRes.ok) throw new Error('Failed to load project info')
+
     const tasksData = await tasksRes.json()
     tasks.value = tasksData.tasks
-    
-    // Load project info
-    const projectRes = await fetch('/api/project')
+
     const projectData = await projectRes.json()
     projectMeta.value = projectData.meta
-    if (projectData.meta.name) {
+
+    if (projectData.meta?.name) {
       projectInfo.value.name = projectData.meta.name
       projectInfo.value.description = projectData.meta.description || ''
     }
+
     
   } catch (error) {
     console.error('Erro ao carregar dados:', error)
