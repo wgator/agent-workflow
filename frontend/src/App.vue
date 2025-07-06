@@ -1,16 +1,31 @@
 <script setup>
-import { ref, onMounted } from 'vue'
-import BacklogView from './views/BacklogView.vue'
-import KanbanView from './views/KanbanView.vue'
+import { ref, onMounted, computed } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import ProjectStatsCard from './components/ProjectStatsCard.vue'
+
+// Router
+const route = useRoute()
+const router = useRouter()
 
 // State
 const loading = ref(false)
-const activeView = ref('0')
 const tasks = ref([])
 const projectMeta = ref({ focus: 'Carregando...' })
 const projectInfo = ref({ name: 'Agent Workflow', description: '' })
 const toasts = ref([])
+
+// Computed: Sincroniza tab ativo com a rota
+const activeView = computed({
+  get() {
+    return route.name === 'backlog' ? '0' : '1'
+  },
+  set(value) {
+    const routeName = value === '0' ? 'backlog' : 'kanban'
+    if (route.name !== routeName) {
+      router.push({ name: routeName })
+    }
+  }
+})
 
 // Toast helper
 function showToast(severity, summary, detail) {
@@ -144,14 +159,14 @@ onMounted(() => {
       <!-- Stats Cards -->
       <ProjectStatsCard :tasks="tasks" />
       
-      <!-- Tabs -->
+      <!-- Tabs sincronizados com router -->
       <p-tabs v-model:value="activeView">
         <p-tablist>
-          <p-tab value="0">
+          <p-tab value="0" @click="() => router.push('/backlog')">
             <i class="pi pi-list"></i>
             Backlog
           </p-tab>
-          <p-tab value="1">
+          <p-tab value="1" @click="() => router.push('/kanban')">
             <i class="pi pi-th-large"></i>
             Kanban
           </p-tab>
@@ -159,7 +174,9 @@ onMounted(() => {
         
         <p-tabpanels>
           <p-tabpanel value="0">
-            <BacklogView 
+            <!-- Router View renderiza componente baseado na rota -->
+            <router-view 
+              v-if="route.name === 'backlog'"
               :tasks="tasks"
               :loading="loading"
               @update-task="updateTask"
@@ -168,7 +185,9 @@ onMounted(() => {
           </p-tabpanel>
           
           <p-tabpanel value="1">
-            <KanbanView 
+            <!-- Router View renderiza componente baseado na rota -->
+            <router-view 
+              v-if="route.name === 'kanban'"
               :tasks="tasks"
               @update-task="updateTask"
               @delete-task="deleteTask"

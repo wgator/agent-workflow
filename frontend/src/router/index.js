@@ -6,17 +6,17 @@ const router = createRouter({
   routes: [
     {
       path: '/',
-      redirect: '/kanban'
-    },
-    {
-      path: '/kanban',
-      name: 'kanban',
-      component: KanbanView
+      redirect: '/backlog'
     },
     {
       path: '/backlog',
       name: 'backlog',
       component: () => import('../views/BacklogView.vue')
+    },
+    {
+      path: '/kanban',
+      name: 'kanban',
+      component: KanbanView
     }
   ]
 })

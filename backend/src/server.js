@@ -2,6 +2,7 @@ import express from 'express'
 import cors from 'cors'
 import { join, dirname } from 'path'
 import { fileURLToPath } from 'url'
+import { watch } from 'chokidar'
 import TaskStore from './lib/taskStore.js'
 import { generateTaskId } from './utils/taskIdGenerator.js'
 
@@ -12,9 +13,11 @@ class AgentWorkflowServer {
     this.port = port
     this.app = express()
     this.taskStore = new TaskStore()
+    this.sseClients = new Set()
     
     this.setupMiddleware()
     this.setupRoutes()
+    this.setupFileWatcher()
   }
 
   setupMiddleware() {
@@ -188,6 +191,76 @@ class AgentWorkflowServer {
         res.status(500).json({ error: error.message })
       }
     })
+
+    // Server-Sent Events endpoint para notificar mudanças no arquivo
+    this.app.get('/api/events', (req, res) => {
+      // Configurar SSE headers
+      res.writeHead(200, {
+        'Content-Type': 'text/event-stream',
+        'Cache-Control': 'no-cache',
+        'Connection': 'keep-alive',
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Headers': 'Cache-Control'
+      })
+
+      // Adicionar cliente à lista
+      this.sseClients.add(res)
+      console.log(`📡 SSE client connected. Total: ${this.sseClients.size}`)
+
+      // Enviar heartbeat inicial
+      res.write('data: {"type":"connected","message":"File watcher ready"}\n\n')
+
+      // Remover cliente quando desconectar
+      req.on('close', () => {
+        this.sseClients.delete(res)
+        console.log(`📡 SSE client disconnected. Total: ${this.sseClients.size}`)
+      })
+    })
+  }
+
+  setupFileWatcher() {
+    const tasksFilePath = join(this.taskStore.projectPath, '.agent', 'tasks.json')
+    
+    console.log(`👁️  Setting up file watcher for: ${tasksFilePath}`)
+    
+    this.watcher = watch(tasksFilePath, {
+      persistent: true,
+      ignoreInitial: true,
+      awaitWriteFinish: {
+        stabilityThreshold: 100,
+        pollInterval: 50
+      }
+    })
+
+    this.watcher.on('change', (path) => {
+      console.log(`📝 tasks.json changed: ${path}`)
+      this.notifyClients({
+        type: 'file_changed',
+        file: 'tasks.json',
+        timestamp: new Date().toISOString()
+      })
+    })
+
+    this.watcher.on('error', (error) => {
+      console.error('❌ File watcher error:', error)
+    })
+  }
+
+  notifyClients(data) {
+    const message = `data: ${JSON.stringify(data)}\n\n`
+    
+    // Notificar todos os clientes conectados
+    for (const client of this.sseClients) {
+      try {
+        client.write(message)
+      } catch (error) {
+        // Remove cliente com erro
+        this.sseClients.delete(client)
+        console.log('📡 Removed disconnected SSE client')
+      }
+    }
+    
+    console.log(`📡 Notified ${this.sseClients.size} SSE clients`)
   }
 
   async start() {
@@ -198,6 +271,7 @@ class AgentWorkflowServer {
       this.server = this.app.listen(this.port, () => {
         console.log(`🚀 Agent Workflow Server running at http://localhost:${this.port}`)
         console.log(`📁 Project path: ${this.taskStore.projectPath}`)
+        console.log(`👁️  File watcher active for tasks.json`)
         resolve()
       })
     })
@@ -205,6 +279,22 @@ class AgentWorkflowServer {
 
   async stop() {
     return new Promise((resolve) => {
+      // Fechar file watcher
+      if (this.watcher) {
+        this.watcher.close()
+        console.log('👁️  File watcher stopped')
+      }
+
+      // Fechar todas as conexões SSE
+      for (const client of this.sseClients) {
+        try {
+          client.end()
+        } catch (error) {
+          // Ignora erros ao fechar conexões
+        }
+      }
+      this.sseClients.clear()
+
       if (this.server) {
         this.server.close(() => {
           console.log('Server stopped')

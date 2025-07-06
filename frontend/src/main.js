@@ -33,6 +33,7 @@ import AccordionTab from 'primevue/accordiontab'
 
 import App from './App.vue'
 import router from './router'
+import fileWatcherService from './services/fileWatcherService.js'
 
 const app = createApp(App)
 
@@ -77,3 +78,16 @@ app.component('p-accordion', Accordion)
 app.component('p-accordion-tab', AccordionTab)
 
 app.mount('#app')
+
+// Inicializar file watcher para auto-reload quando tasks.json mudar
+if (import.meta.env.DEV) {
+  console.log('🔧 [DEV] Starting file watcher for auto-reload...')
+  fileWatcherService.start()
+  
+  // Cleanup ao fechar a página
+  window.addEventListener('beforeunload', () => {
+    fileWatcherService.stop()
+  })
+} else {
+  console.log('🏗️  [PROD] File watcher disabled in production')
+}

@@ -4,13 +4,12 @@ Sistema de orquestração de agentes para desenvolvimento com MCP filesystem.
 
 ## 🎯 Visão Geral
 
-O Agent Workflow coordena 6 agentes especializados:
+O Agent Workflow coordena 5 agentes especializados:
 1. **PLAN** - Seleciona e prioriza tarefas
-2. **SPECIFICATION** - Define arquitetura de alto nível
-3. **TECHNICAL_DETAILER** - Cria estrutura detalhada
-4. **IMPLEMENTATION** - Implementa o código
-5. **TESTER** - Cria e executa testes
-6. **CODE_REVIEW** - Revisa e finaliza
+2. **SPECIFICATION** - Define arquitetura e estrutura detalhada
+3. **IMPLEMENTATION** - Implementa o código
+4. **TESTER** - Cria e executa testes
+5. **CODE_REVIEW** - Revisa e finaliza
 
 ## 📄 Estrutura do tasks.json
 
@@ -31,8 +30,8 @@ O Agent Workflow coordena 6 agentes especializados:
       "created_at": "2025-01-15T10:00:00Z",
       "started_at": "2025-01-15T10:00:00Z",
       "completed_at": "2025-01-15T16:00:00Z",
-      "phase": "implementation", // plan | spec | detail | implementation | test | review
-      "phases_completed": ["plan", "spec", "detail"],
+      "phase": "implementation", // plan | spec | implementation | test | review
+      "phases_completed": ["plan", "spec"],
       "files": {
         "planned": ["src/repositories/postRepository.js"],
         "created": ["src/repositories/baseRepository.js"],
@@ -42,7 +41,7 @@ O Agent Workflow coordena 6 agentes especializados:
       "notes": {
         "plan": "Priorizada por ser base para outros módulos",
         "spec": "Usar pattern Repository com classe base",
-        "detail": "Incluir validação com Joi",
+        
         "implementation": "Tive que criar BaseRepository primeiro"
       }
     }
@@ -71,13 +70,17 @@ const nextTask = Object.entries(tasks.tasks)
 const activeSpec = Object.entries(tasks.tasks)
   .find(([id, task]) => task.status === 'active' && task.phase === 'spec')
 
-// TECHNICAL_DETAILER - phase:'detail'
 // IMPLEMENTATION - phase:'implementation'
 // TESTER - phase:'test'
 // CODE_REVIEW - phase:'review'
 ```
 
 ## 📋 Documentação Contínua
+
+### Templates Disponíveis
+
+- **progress-template.md**: Para documentação contínua (todas as fases)
+- **spec-template.md**: Para especificações expandidas (fase SPECIFICATION)
 
 ### Template Progress (Obrigatório)
 
@@ -99,9 +102,8 @@ Adicionar resumo conciso em `notes[phase]` do tasks.json
 | Agente | Lê | Cria | Atualiza |
 |--------|-----|------|----------|
 | PLAN | tasks.json, código | progress-{id}.md | status:'active', phase:'spec' |
-| SPECIFICATION | spec anterior | spec-{id}.md | phase:'detail', notes.spec |
-| TECHNICAL_DETAILER | spec-{id}.md | scaffold-{id}.md | phase:'implementation', files.planned |
-| IMPLEMENTATION | scaffold-{id}.md | código real | phase:'test', files.created/modified |
+| SPECIFICATION | spec anterior, spec-template | spec-{id}.md | phase:'implementation', notes.spec, files.planned |
+| IMPLEMENTATION | spec-{id}.md | código real | phase:'test', files.created/modified |
 | TESTER | código criado | testes | phase:'review', files.tested |
 | CODE_REVIEW | tudo | review-{id}.md | status:'completed', arquiva workspace |
 
@@ -125,7 +127,7 @@ task.notes.minha_fase = 'Resumo do que foi feito'
 task.status = 'completed'
 task.completed_at = new Date().toISOString()
 task.phase = null
-// Arquivar spec, scaffold, review em workspace/archive/{task-id}/
+// Arquivar spec, review em workspace/archive/{task-id}/
 // Manter progress no workspace principal
 ```
 
@@ -154,12 +156,11 @@ const taskId = `${yy}${mm}${dd}-${shortName}` // 250115-post-repo
 │   ├── archive/            # Histórico de tarefas completas
 │   │   └── {task-id}/     # Arquivos arquivados por task
 │   │       ├── spec-*.md
-│   │       ├── scaffold-*.md
 │   │       └── review-*.md
 │   ├── progress-*.md      # Documentação contínua (preservar)
 │   ├── spec-*.md          # Especificações ativas
-│   ├── scaffold-*.md      # Estruturas ativas
 │   └── review-*.md        # Revisões ativas
 └── templates/
-    └── progress-template.md # Template para progress
+    ├── progress-template.md # Template para progress
+    └── spec-template.md     # Template para especificações expandidas
 ```

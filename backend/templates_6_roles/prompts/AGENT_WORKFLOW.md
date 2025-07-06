@@ -55,7 +55,7 @@ O Agent Workflow coordena 6 agentes especializados:
 1. **Uma task ativa por vez** - Sistema suporta apenas uma task com status:'active'
 2. **Progress file obrigatório** - Sempre criar `.agent/workspace/progress-{task-id}.md` ao iniciar
 3. **Atualizar ao pausar** - Documentar estado atual e próximos passos antes de parar
-4. **Preservar progress files** - Nunca deletar, são o histórico do projeto
+4. **Preservar progress files** - Nunca deletar ou arquivar, mantê-los no workspace principal como referência ativa
 5. **Filtrar corretamente** - Cada agente deve processar apenas tasks em sua fase
 
 ## 🔍 Sistema de Filtragem
@@ -103,7 +103,7 @@ Adicionar resumo conciso em `notes[phase]` do tasks.json
 | TECHNICAL_DETAILER | spec-{id}.md | scaffold-{id}.md | phase:'implementation', files.planned |
 | IMPLEMENTATION | scaffold-{id}.md | código real | phase:'test', files.created/modified |
 | TESTER | código criado | testes | phase:'review', files.tested |
-| CODE_REVIEW | tudo | review-{id}.md | status:'completed', limpa workspace |
+| CODE_REVIEW | tudo | review-{id}.md | status:'completed', arquiva workspace |
 
 ## 🔄 Fluxo de Atualização
 
@@ -125,7 +125,8 @@ task.notes.minha_fase = 'Resumo do que foi feito'
 task.status = 'completed'
 task.completed_at = new Date().toISOString()
 task.phase = null
-// Deletar spec, scaffold, review (manter progress)
+// Arquivar spec, scaffold, review em workspace/archive/{task-id}/
+// Manter progress no workspace principal
 ```
 
 ## 🆔 Sistema de IDs
@@ -150,10 +151,15 @@ const taskId = `${yy}${mm}${dd}-${shortName}` // 250115-post-repo
 .agent/
 ├── tasks.json              # Estado de todas as tarefas
 ├── workspace/              # Documentos de trabalho
+│   ├── archive/            # Histórico de tarefas completas
+│   │   └── {task-id}/     # Arquivos arquivados por task
+│   │       ├── spec-*.md
+│   │       ├── scaffold-*.md
+│   │       └── review-*.md
 │   ├── progress-*.md      # Documentação contínua (preservar)
-│   ├── spec-*.md          # Especificações
-│   ├── scaffold-*.md      # Estruturas detalhadas
-│   └── review-*.md        # Notas de revisão
+│   ├── spec-*.md          # Especificações ativas
+│   ├── scaffold-*.md      # Estruturas ativas
+│   └── review-*.md        # Revisões ativas
 └── templates/
     └── progress-template.md # Template para progress
 ```

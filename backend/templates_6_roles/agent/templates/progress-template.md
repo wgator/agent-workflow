@@ -4,10 +4,8 @@ Started: {timestamp}
 Last Update: {timestamp}
 
 ## 🎯 Decomposição
-- [ ] Análise da spec
-- [ ] Setup do ambiente
-- [ ] Criar estrutura de arquivos
-- [ ] Implementar seguindo spec expandida
+- [ ] Item 1
+- [ ] Item 2
 - [ ] ...
 
 ## 💭 Contexto & Decisões
